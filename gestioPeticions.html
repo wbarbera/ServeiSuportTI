@@ -1,0 +1,1293 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Gestió de Peticions d'Accés — AM01 Justícia</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+  <style>
+    :root {
+      --bg:#0f1117;--s1:#161b27;--s2:#1c2233;--s3:#232a3e;
+      --acc:#4f8ef7;--acc2:#38d9a9;--warn:#f76b4f;--warn2:#ffd600;
+      --text:#e8ecf4;--sub:#8a95b0;--muted:#4e5873;
+      --border:rgba(255,255,255,.07);--border-acc:rgba(79,142,247,.35);
+      --font:'Inter',sans-serif;--mono:'JetBrains Mono',monospace;
+      --r:8px;--rl:14px;
+    }
+    *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh;font-size:14px;line-height:1.5}
+    body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(var(--s2) 1px,transparent 1px),linear-gradient(90deg,var(--s2) 1px,transparent 1px);background-size:32px 32px;opacity:.2;pointer-events:none;z-index:0}
+
+    .page{position:relative;z-index:1;max-width:1540px;margin:0 auto;padding:32px 28px 80px}
+    .layout{display:grid;grid-template-columns:290px 1fr;gap:14px;align-items:start}
+
+    /* HEADER */
+    .header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:30px;gap:14px}
+    .htag{font-family:var(--mono);font-size:10px;letter-spacing:.12em;color:var(--acc);text-transform:uppercase;margin-bottom:7px;display:flex;align-items:center;gap:7px}
+    .htag::before{content:'';width:14px;height:1px;background:var(--acc);display:inline-block}
+    h1{font-size:clamp(20px,3vw,34px);font-weight:700;line-height:1.15;letter-spacing:-.02em}
+    h1 em{color:var(--acc);font-style:normal}
+    .hdesc{margin-top:7px;color:var(--sub);font-size:13px;line-height:1.6;max-width:460px}
+    .hbadge{display:flex;align-items:center;gap:7px;background:var(--s2);border:1px solid var(--border);border-radius:999px;padding:7px 13px;font-family:var(--mono);font-size:11px;color:var(--acc2);white-space:nowrap;align-self:flex-start}
+    .dot{width:6px;height:6px;background:var(--acc2);border-radius:50%;animation:pulse 2s infinite}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+    /* DEBUG */
+    .debug-banner{display:none;align-items:center;justify-content:space-between;gap:10px;background:rgba(79,142,247,.08);border:1px solid rgba(79,142,247,.2);border-radius:var(--r);padding:9px 14px;margin-bottom:14px;font-size:12px;color:var(--acc);font-family:var(--mono)}
+    .debug-banner button{background:rgba(79,142,247,.15);border:1px solid rgba(79,142,247,.3);border-radius:6px;color:var(--acc);font-family:var(--mono);font-size:11px;padding:3px 9px;cursor:pointer}
+
+    /* PANEL */
+    .panel{background:var(--s1);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden}
+    .ph{padding:14px 18px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px}
+    .ptitle{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--sub);font-family:var(--mono)}
+    .pbadge{font-family:var(--mono);font-size:10px;background:var(--s3);border:1px solid var(--border);color:var(--sub);padding:2px 9px;border-radius:999px;transition:.2s}
+    .pbadge.on{background:rgba(56,217,169,.1);border-color:rgba(56,217,169,.3);color:var(--acc2)}
+
+    /* TOOL LIST */
+    .tool-list{padding:8px;display:flex;flex-direction:column;gap:3px}
+    .ti{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--r);border:1px solid transparent;cursor:pointer;transition:all .12s}
+    .ti:hover{background:var(--s2);border-color:var(--border)}
+    .ti.active{background:rgba(79,142,247,.06);border-color:var(--border-acc)}
+    .ti-icon{width:28px;height:28px;border-radius:6px;background:var(--s3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+    .ti.active .ti-icon{background:rgba(79,142,247,.12);border-color:rgba(79,142,247,.25)}
+    .ti-info{flex:1;min-width:0}
+    .ti-name{font-size:12px;font-weight:600;margin-bottom:1px}
+    .ti-desc{font-size:10px;color:var(--muted);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .ti-check{width:14px;height:14px;border-radius:4px;border:1.5px solid var(--muted);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .12s}
+    .ti.active .ti-check{background:var(--acc);border-color:var(--acc);color:#fff}
+    .ti-check svg{display:none}
+    .ti.active .ti-check svg{display:block}
+
+    /* RIGHT */
+    .right{display:flex;flex-direction:column;gap:12px}
+
+    /* PILLS */
+    .pills-bar{display:flex;flex-wrap:wrap;gap:5px;padding:10px 16px;min-height:46px;align-items:center;border-bottom:1px solid var(--border)}
+    .empty-hint{font-family:var(--mono);font-size:11px;color:var(--muted)}
+    .pill{display:flex;align-items:center;gap:5px;background:rgba(79,142,247,.1);color:var(--acc);border:1px solid rgba(79,142,247,.22);border-radius:999px;padding:3px 7px 3px 9px;font-size:11px;font-family:var(--mono);animation:pop .12s ease}
+    @keyframes pop{from{transform:scale(.8);opacity:0}to{transform:scale(1);opacity:1}}
+    .pill-x{background:none;border:none;cursor:pointer;color:var(--acc);opacity:.5;font-size:13px;line-height:1;padding:0;transition:.12s}
+    .pill-x:hover{opacity:1}
+
+    /* FORM */
+    .form-body{padding:18px}
+    .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+    .field{display:flex;flex-direction:column;gap:5px}
+    .field.full{grid-column:1/-1}
+    label{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--sub)}
+    label .req{color:var(--acc2);margin-left:2px}
+    input,select,textarea{width:100%;background:var(--s2);border:1px solid var(--border);border-radius:var(--r);padding:8px 11px;color:var(--text);font-family:var(--mono);font-size:13px;outline:none;transition:border-color .12s,box-shadow .12s;-webkit-appearance:none;appearance:none}
+    select{background-color:var(--s2);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath fill='%238a95b0' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center;padding-right:30px;color:var(--text)}
+    select option{background:#1c2233;color:var(--text)}
+    textarea{min-height:80px;resize:vertical;line-height:1.55}
+    input:focus,select:focus,textarea:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(79,142,247,.1)}
+    input::placeholder,textarea::placeholder{color:var(--muted)}
+
+    /* SECTION DIVIDER */
+    .sdiv{grid-column:1/-1;display:flex;align-items:center;gap:8px;margin:3px 0 1px}
+    .sdiv span{font-size:10px;font-family:var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+    .sdiv::before,.sdiv::after{content:'';flex:1;height:1px;background:var(--border)}
+
+    /* TOGGLES */
+    .toggle-row{display:flex;align-items:center;justify-content:space-between;padding:11px 13px;background:var(--s2);border-radius:var(--r);margin-bottom:8px;border:1px solid var(--border);cursor:pointer;user-select:none;transition:border-color .12s}
+    .toggle-row:hover{border-color:rgba(56,217,169,.3)}
+    .toggle-row.active-nova{border-color:rgba(56,217,169,.4);background:rgba(56,217,169,.04)}
+    .trl strong{font-size:13px;font-weight:600}
+    .trl span{font-size:11px;color:var(--sub);font-family:var(--mono)}
+    .tog{width:36px;height:20px;background:var(--s3);border-radius:999px;border:1px solid var(--border);position:relative;transition:all .2s;flex-shrink:0}
+    .tog::after{content:'';position:absolute;top:3px;left:3px;width:12px;height:12px;background:var(--muted);border-radius:50%;transition:all .2s}
+    .tog.on{background:rgba(56,217,169,.2);border-color:var(--acc2)}
+    .tog.on::after{left:calc(100% - 15px);background:var(--acc2)}
+    .baixa-row{display:flex;align-items:center;justify-content:space-between;padding:11px 13px;background:rgba(247,107,79,.04);border-radius:var(--r);margin-bottom:14px;border:1px solid rgba(247,107,79,.15);cursor:pointer;user-select:none;transition:border-color .12s}
+    .baixa-row:hover{border-color:rgba(247,107,79,.3)}
+    .baixa-row.active-baixa{border-color:rgba(247,107,79,.45);background:rgba(247,107,79,.07)}
+    .tog-baixa{width:36px;height:20px;background:var(--s3);border-radius:999px;border:1px solid var(--border);position:relative;transition:all .2s;flex-shrink:0}
+    .tog-baixa::after{content:'';position:absolute;top:3px;left:3px;width:12px;height:12px;background:var(--muted);border-radius:50%;transition:all .2s}
+    .tog-baixa.on{background:rgba(247,107,79,.2);border-color:var(--warn)}
+    .tog-baixa.on::after{left:calc(100% - 15px);background:var(--warn)}
+
+    /* ERROR ALERT */
+    .alert-error{grid-column:1/-1;display:none;align-items:flex-start;gap:9px;background:rgba(247,107,79,.08);border:1px solid rgba(247,107,79,.3);border-radius:var(--r);padding:10px 13px;font-size:12px;color:#ff9a73;font-family:var(--mono);line-height:1.5}
+    .alert-error.show{display:flex}
+
+    /* ENTORN MULTI-SELECT */
+    .entorn-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-top:2px}
+    .entorn-btn{padding:6px 4px;border-radius:6px;border:1px solid var(--border);background:var(--s2);color:var(--sub);font-family:var(--mono);font-size:12px;cursor:pointer;text-align:center;transition:.12s;-webkit-appearance:none;font-weight:500}
+    .entorn-btn:hover{border-color:rgba(79,142,247,.3);color:var(--text)}
+    .entorn-btn.sel{background:rgba(79,142,247,.12);border-color:var(--border-acc);color:var(--acc);font-weight:600}
+
+    /* URL LIST (SVN, GIT Gene, OpenShift namespaces, Logs, BD) */
+    .url-list{display:flex;flex-direction:column;gap:5px}
+    .url-row{display:flex;gap:5px;align-items:center}
+    .url-row input,.url-row select{flex:1}
+    /* icona paperera reutilitzable */
+    .icon-trash{display:inline-flex;align-items:center;justify-content:center;background:rgba(247,107,79,.1);border:1px solid rgba(247,107,79,.2);border-radius:6px;color:var(--warn);width:28px;height:28px;cursor:pointer;transition:.12s;flex-shrink:0;padding:0}
+    .icon-trash:hover{background:rgba(247,107,79,.25)}
+    .icon-trash svg{pointer-events:none}
+    .url-remove{background:rgba(247,107,79,.1);border:1px solid rgba(247,107,79,.2);border-radius:6px;color:var(--warn);width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:.12s;flex-shrink:0;padding:0}
+    .url-remove:hover{background:rgba(247,107,79,.25)}
+    .url-add{background:rgba(79,142,247,.08);border:1px solid rgba(79,142,247,.18);border-radius:6px;color:var(--acc);font-size:12px;padding:5px 10px;cursor:pointer;font-family:var(--mono);font-weight:500;transition:.12s;width:100%;margin-top:2px;text-align:left}
+    .url-add:hover{background:rgba(79,142,247,.15)}
+    .field-hint{font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:2px;line-height:1.5}
+
+    /* BD / OS rows (modul+entorns o namespace+entorns per fila) */
+    .bd-row{background:var(--s2);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;display:flex;flex-direction:column;gap:8px;position:relative}
+    .bd-row-remove{position:absolute;top:8px;right:8px;background:rgba(247,107,79,.1);border:1px solid rgba(247,107,79,.2);border-radius:5px;color:var(--warn);width:24px;height:24px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:.12s;flex-shrink:0;padding:0}
+    .bd-row-remove:hover{background:rgba(247,107,79,.25)}
+    .bd-row label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--sub);margin-bottom:3px}
+
+    /* DL SECTION */
+    .dl-section{grid-column:1/-1;background:rgba(56,217,169,.04);border:1px solid rgba(56,217,169,.15);border-radius:var(--r);padding:11px 13px;display:none;flex-direction:column;gap:7px}
+    .dl-section.show{display:flex}
+    .dl-title{font-size:10px;font-family:var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--acc2);margin-bottom:1px}
+    .dl-item{display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:3px 2px;border-radius:5px;transition:background .1s}
+    .dl-item:hover{background:rgba(56,217,169,.05)}
+    .dl-cb{width:14px;height:14px;border-radius:4px;border:1.5px solid var(--muted);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;transition:.12s}
+    .dl-item.active .dl-cb{background:var(--acc2);border-color:var(--acc2)}
+    .dl-cb svg{display:none}
+    .dl-item.active .dl-cb svg{display:block}
+    .dl-label strong{display:block;color:var(--text);font-size:12px;font-weight:600}
+    .dl-label span{color:var(--sub);font-size:11px;font-family:var(--mono)}
+
+    /* EJCAT WARNING */
+    .ejcat-warn{grid-column:1/-1;background:rgba(247,107,79,.06);border:1px solid rgba(247,107,79,.22);border-radius:var(--r);padding:9px 12px;font-size:12px;color:#ff9a73;font-family:var(--mono);line-height:1.5;display:none}
+    .ejcat-warn.show{display:block}
+
+    /* CLARITY */
+    .clarity-box{grid-column:1/-1;background:rgba(255,214,0,.04);border:1px solid rgba(255,214,0,.18);border-radius:var(--r);padding:11px 13px;display:none;flex-direction:column;gap:7px}
+    .clarity-box.show{display:flex}
+    .clarity-title{font-size:10px;font-family:var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--warn2);margin-bottom:1px}
+
+    /* ACTIONS */
+    .actions{display:flex;align-items:center;justify-content:space-between;padding:13px 18px;border-top:1px solid var(--border);gap:8px;flex-wrap:wrap}
+    .act-info{font-family:var(--mono);font-size:11px;color:var(--sub)}
+    .act-info strong{color:var(--acc2)}
+    .btn{font-family:var(--font);font-size:13px;font-weight:600;padding:8px 16px;border-radius:var(--r);border:none;cursor:pointer;transition:all .12s}
+    .btn-ghost{background:transparent;color:var(--sub);border:1px solid var(--border)}
+    .btn-ghost:hover{background:var(--s2);color:var(--text)}
+    .btn-send{background:var(--acc);color:#fff;display:flex;align-items:center;gap:6px}
+    .btn-send:hover{background:#6ea8fa;transform:translateY(-1px)}
+    .btn-send:active{transform:translateY(0)}
+    .btn-send:disabled{opacity:.4;cursor:not-allowed;transform:none}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .spinner{width:11px;height:11px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;display:none}
+    .btn-send.loading .spinner{display:block}
+    .btn-send.loading .blbl{opacity:.6}
+
+    /* EMAIL PREVIEW */
+    .preview-list{padding:10px;display:flex;flex-direction:column;gap:7px}
+    .preview-empty{padding:22px 14px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--muted)}
+    .ep{background:var(--s2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;animation:pop .15s ease}
+    .ep-head{padding:8px 12px;display:flex;align-items:center;gap:7px;border-bottom:1px solid var(--border);cursor:pointer;user-select:none}
+    .ep-dot{width:6px;height:6px;border-radius:50%;background:var(--acc);flex-shrink:0}
+    .ep-dot.pmo{background:var(--acc2)}
+    .ep-dot.nova{background:#a78bfa}
+    .ep-dot.qualitat{background:var(--warn)}
+    .ep-addrs{flex:1;font-family:var(--mono);font-size:11px;overflow:hidden}
+    .ep-addrs .to-l{color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .ep-addrs .to-l span{color:var(--sub)}
+    .ep-addrs .cc-l{color:var(--muted);font-size:10px;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .ep-subj{font-size:11px;font-weight:600;font-family:var(--mono);color:var(--sub);flex-shrink:0;margin-left:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px}
+    .ep-chev{color:var(--muted);transition:transform .2s;flex-shrink:0}
+    .ep.open .ep-chev{transform:rotate(180deg)}
+    .ep-body-wrap{display:none}
+    .ep.open .ep-body-wrap{display:block}
+    .ep-body{padding:10px 12px;font-family:var(--mono);font-size:11px;color:var(--sub);line-height:1.65;white-space:pre-wrap;word-break:break-all;background:var(--bg);border-top:1px solid var(--border);max-height:360px;overflow-y:auto}
+    .ep-body::-webkit-scrollbar{width:3px}
+    .ep-body::-webkit-scrollbar-track{background:transparent}
+    .ep-body::-webkit-scrollbar-thumb{background:var(--s3);border-radius:3px}
+
+    /* TOAST */
+    .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(70px);background:var(--s2);border:1px solid var(--border-acc);border-radius:var(--rl);padding:11px 16px;display:flex;align-items:center;gap:9px;box-shadow:0 14px 40px rgba(0,0,0,.55);z-index:9999;transition:transform .28s cubic-bezier(.34,1.56,.64,1);min-width:230px}
+    .toast.show{transform:translateX(-50%) translateY(0)}
+    .toast-icon{width:26px;height:26px;border-radius:50%;background:rgba(79,142,247,.12);display:flex;align-items:center;justify-content:center;color:var(--acc);flex-shrink:0}
+    .toast-title{font-weight:700;font-size:13px}
+    .toast-sub{font-family:var(--mono);font-size:11px;color:var(--sub);margin-top:1px}
+    .toast.error .toast-icon{background:rgba(247,107,79,.12);color:var(--warn)}
+    .toast.error{border-color:rgba(247,107,79,.4)}
+
+    @media(max-width:1000px){.page{padding:18px 12px 60px}.layout{grid-template-columns:1fr}.form-grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <div class="header">
+    <div>
+      <div class="htag">Sistema de Gestió · AM01 Justícia</div>
+      <h1>Peticions d'<em>Accés</em></h1>
+      <p class="hdesc">Selecciona eines, omple el formulari i el sistema enviarà cada petició al responsable corresponent.</p>
+    </div>
+    <div class="hbadge"><div class="dot"></div>EmailJS · Enviament automàtic</div>
+  </div>
+
+  <div class="debug-banner" id="debugBanner">
+    🔍 <strong>Mode debug actiu</strong> — els correus es mostren però no s'envien. Obre cada targeta per veure el contingut.
+    <button onclick="toggleDebug()">Desactivar debug</button>
+  </div>
+
+  <div class="layout">
+
+    <!-- ESQUERRA: EINES -->
+    <div class="panel">
+      <div class="ph">
+        <span class="ptitle">Eines</span>
+        <span class="pbadge" id="toolCount">0 sel.</span>
+      </div>
+      <div class="tool-list" id="toolList"></div>
+    </div>
+
+    <!-- DRETA -->
+    <div class="right">
+      <div class="panel">
+        <div class="pills-bar" id="pillsBar">
+          <span class="empty-hint">← Selecciona eines o activa Nova incorporació / Baixa</span>
+        </div>
+
+        <div class="form-body">
+          <form id="reqForm" novalidate>
+
+            <!-- Nova incorporació -->
+            <div class="toggle-row" id="novaRow" onclick="toggleNova()">
+              <div class="trl"><strong>🆕 Nova incorporació</strong><span>Activa si és un nou membre de l'equip</span></div>
+              <div class="tog" id="novaTog"></div>
+            </div>
+            <input type="hidden" id="isNova" value="false">
+
+            <!-- Baixa -->
+            <div class="baixa-row" id="baixaRow" onclick="toggleBaixa()">
+              <div class="trl"><strong>🚪 Sol·licitar baixa</strong><span>Dona de baixa un usuari de les eines seleccionades</span></div>
+              <div class="tog-baixa" id="baixaTog"></div>
+            </div>
+            <input type="hidden" id="isBaixa" value="false">
+
+            <div class="form-grid">
+
+              <!-- Error: baixa + eines noves simultàniament -->
+              <div class="alert-error" id="alertBaixaAlta">
+                ⚠️ No es pot sol·licitar una baixa si hi ha eines amb accés nou simultàniament. Desactiva la baixa o deselecciona les eines, depenent del que necessitis.
+              </div>
+
+              <div class="sdiv"><span>Dades personals</span></div>
+
+              <div class="field">
+                <label>Nom <span class="req">*</span></label>
+                <input type="text" id="nom" placeholder="ex. Joan" autocomplete="off" oninput="renderPreview()">
+              </div>
+              <div class="field">
+                <label>Cognoms <span class="req">*</span></label>
+                <input type="text" id="cognoms" placeholder="ex. Garcia López" autocomplete="off" oninput="renderPreview()">
+              </div>
+
+              <!-- Correu (ocult per EJCAT PRO) -->
+              <div class="field" id="emailField">
+                <label>Correu electrònic <span class="req">*</span></label>
+                <input type="email" id="email" placeholder="joan@empresa.cat" oninput="renderPreview()">
+              </div>
+
+              <!-- Usuari de xarxa (condicional per eina) -->
+              <div class="field" id="xarxaField" style="display:none">
+                <label>Usuari de xarxa</label>
+                <input type="text" id="usuariXarxa" placeholder="ex. jgomez11" oninput="renderPreview()">
+              </div>
+
+              <!-- DNI (condicional) -->
+              <div class="field" id="dniField" style="display:none">
+                <label>DNI / NIF</label>
+                <input type="text" id="dni" placeholder="12345678A" oninput="renderPreview()">
+              </div>
+
+              <!-- Telèfon (condicional) -->
+              <div class="field" id="telField" style="display:none">
+                <label>Telèfon</label>
+                <input type="text" id="telefon" placeholder="+34 600 000 000" oninput="renderPreview()">
+              </div>
+
+              <!-- Lot (condicional) -->
+              <div class="field" id="lotField" style="display:none">
+                <label>Lot</label>
+                <input type="text" id="lot" placeholder="ex. LOT-3" oninput="renderPreview()">
+              </div>
+
+              <!-- ── Camps específics ── -->
+              <div class="sdiv" id="extraDiv" style="display:none"><span>Dades específiques de l'eina</span></div>
+
+              <!-- Projecte (JIRA) -->
+              <div class="field full" id="projecteField" style="display:none">
+                <label>Projecte</label>
+                <input type="text" id="projecte" placeholder="ex. ESMATRML01" oninput="renderPreview()">
+              </div>
+
+              <!-- Usuari mirall -->
+              <div class="field full" id="mirrorField" style="display:none">
+                <label>Usuari mirall</label>
+                <input type="text" id="usuariMirall" placeholder="usuari.mirall@empresa.cat" oninput="renderPreview()">
+              </div>
+
+              <!-- SVN: múltiples URLs -->
+              <div class="field full" id="svnUrlField" style="display:none">
+                <label>URL(s) SVN</label>
+                <div class="url-list" id="svnUrlList">
+                  <div class="url-row">
+                    <input type="text" placeholder="https://setools.t-systems.es/svn-public-gene/TRAMUNTANA_Gene" oninput="renderPreview()">
+                    <button type="button" class="url-remove" onclick="removeRow(this,'svnUrlList')" title="Eliminar"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg></button>
+                  </div>
+                </div>
+                <button type="button" class="url-add" onclick="addRow('svnUrlList','https://setools.t-systems.es/svn-public-gene/TRAMUNTANA_Gene')">+ Afegir URL SVN</button>
+                <div class="field-hint">Per defecte: <code>https://setools.t-systems.es/svn-public-gene/TRAMUNTANA_Gene</code></div>
+              </div>
+
+              <!-- GIT Generalitat: múltiples URLs + DNI -->
+              <div class="field full" id="gitGeneUrlField" style="display:none">
+                <label>URLs de projectes GIT Generalitat</label>
+                <div class="url-list" id="gitGeneUrlList">
+                  <div class="url-row">
+                    <input type="text" placeholder="https://git.intranet.gencat.cat/grup/projecte" oninput="renderPreview()">
+                    <button type="button" class="url-remove" onclick="removeRow(this,'gitGeneUrlList')" title="Eliminar"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg></button>
+                  </div>
+                </div>
+                <button type="button" class="url-add" onclick="addRow('gitGeneUrlList','https://git.intranet.gencat.cat/grup/projecte')">+ Afegir URL</button>
+              </div>
+
+              <!-- OpenShift: múltiples namespace+entorns per fila -->
+              <div class="field full" id="namespaceField" style="display:none">
+                <label>Namespace(s) OpenShift i entorns</label>
+                <div class="url-list" id="osList">
+                  <div class="bd-row">
+                    <button type="button" class="bd-row-remove" onclick="removeBdRow(this,'osList')" title="Eliminar"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg></button>
+                    <div><label>Namespace <span style="color:var(--acc2)">*</span></label>
+                      <select onchange="renderPreview()">
+                        <option value="">— Selecciona namespace —</option>
+                        <option value="1370-ejcat">1370 EJCAT+</option>
+                        <option value="1370-osm">1370 EJCAT+ OSM Arquitectes</option>
+                        <option value="4039">4039 APU, EVD</option>
+                        <option value="4040">4040 AJR+, SJE</option>
+                        <option value="4041">4041 AVS, INFOJUS, Textualització</option>
+                      </select>
+                    </div>
+                    <div><label>Entorn(s) <span style="color:var(--acc2)">*</span></label>
+                      <div class="entorn-grid">
+                        <button type="button" class="entorn-btn" data-v="INT" onclick="this.classList.toggle('sel');renderPreview()">INT</button>
+                        <button type="button" class="entorn-btn" data-v="PRE" onclick="this.classList.toggle('sel');renderPreview()">PRE</button>
+                        <button type="button" class="entorn-btn" data-v="PRO" onclick="this.classList.toggle('sel');renderPreview()">PRO</button>
+                        <button type="button" class="entorn-btn" data-v="FOR" onclick="this.classList.toggle('sel');renderPreview()">FOR</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <button type="button" class="url-add" onclick="addOsRow()">+ Afegir namespace</button>
+              </div>
+
+              <!-- Entorns Grafana (sense namespace, entorns globals) -->
+              <div class="field full" id="entornField" style="display:none">
+                <label>Entorn(s) Grafana</label>
+                <div class="entorn-grid">
+                  <button type="button" class="entorn-btn" data-grp="os" data-v="INT" onclick="this.classList.toggle('sel');updateAll()">INT</button>
+                  <button type="button" class="entorn-btn" data-grp="os" data-v="PRE" onclick="this.classList.toggle('sel');updateAll()">PRE</button>
+                  <button type="button" class="entorn-btn" data-grp="os" data-v="PRO" onclick="this.classList.toggle('sel');updateAll()">PRO</button>
+                  <button type="button" class="entorn-btn" data-grp="os" data-v="FOR" onclick="this.classList.toggle('sel');updateAll()">FOR</button>
+                </div>
+              </div>
+
+              <!-- Logs: múltiples domini+entorn -->
+              <div class="field full" id="logsField" style="display:none">
+                <label>Dominis de logs i entorns</label>
+                <div class="url-list" id="logsList">
+                  <div class="bd-row">
+                    <button type="button" class="bd-row-remove" onclick="removeBdRow(this,'logsList')" title="Eliminar"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg></button>
+                    <div>
+                      <label>Domini</label>
+                      <select onchange="renderPreview()">
+                        <option value="wl_ejcat">WL EJCAT (defecte)</option>
+                        <option value="wl_ejcat_prog">WL EJCAT Progressius (defecte)</option>
+                        <option value="wl_seu">WL Seu Judicial</option>
+                        <option value="wl_gcrh">WL GCRH</option>
+                        <option value="osb">OSB</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label>Entorn(s)</label>
+                      <div class="entorn-grid">
+                        <button type="button" class="entorn-btn" data-v="INT" onclick="this.classList.toggle('sel');renderPreview()">INT</button>
+                        <button type="button" class="entorn-btn" data-v="PRE" onclick="this.classList.toggle('sel');renderPreview()">PRE</button>
+                        <button type="button" class="entorn-btn" data-v="FOR" onclick="this.classList.toggle('sel');renderPreview()">FOR</button>
+                        <button type="button" class="entorn-btn" data-v="PRO" onclick="this.classList.toggle('sel');renderPreview()">PRO</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <button type="button" class="url-add" onclick="addLogsRow()">+ Afegir domini de logs</button>
+              </div>
+
+              <!-- BD: usuari BD + múltiples mòdul+entorn -->
+              <div class="field full" id="bdField" style="display:none">
+                <label>Usuari de BD <span class="req">*</span></label>
+                <input type="text" id="bdUsuari" placeholder="USU_XXX" oninput="renderPreview()">
+                <div class="field-hint">Format: USU_XXX</div>
+              </div>
+              <div class="field full" id="bdModulsField" style="display:none">
+                <label>Mòdul(s) i entorns BD <span class="req">*</span></label>
+                <div class="url-list" id="bdList">
+                  <div class="bd-row">
+                    <button type="button" class="bd-row-remove" onclick="removeBdRow(this,'bdList')" title="Eliminar"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg></button>
+                    <div>
+                      <label>Mòdul <span style="color:var(--acc2)">*</span></label>
+                      <input type="text" placeholder="ex. ANT, RAA..." oninput="renderPreview()">
+                    </div>
+                    <div>
+                      <label>Entorn(s) <span style="color:var(--acc2)">*</span></label>
+                      <div class="entorn-grid">
+                        <button type="button" class="entorn-btn" data-v="INT" onclick="this.classList.toggle('sel');renderPreview()">INT</button>
+                        <button type="button" class="entorn-btn" data-v="PRE" onclick="this.classList.toggle('sel');renderPreview()">PRE</button>
+                        <button type="button" class="entorn-btn" data-v="FOR" onclick="this.classList.toggle('sel');renderPreview()">FOR</button>
+                        <button type="button" class="entorn-btn" data-v="PRO" onclick="this.classList.toggle('sel');renderPreview()">PRO</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <button type="button" class="url-add" onclick="addBdRow()">+ Afegir mòdul</button>
+              </div>
+
+              <!-- EJCAT PRO -->
+              <div class="ejcat-warn" id="ejcatWarn">⚠️ <strong>Només aplica a jutjats reals, NO a ficticis.</strong> Si és una configuració de desplegament, cal demanar tiquet ESPRTRA-XXX al responsable de Desplegaments.</div>
+              <div class="field" id="ejcatNifField" style="display:none">
+                <label>NIF <span class="req">*</span></label>
+                <input type="text" id="ejcatNif" placeholder="12345678T" oninput="renderPreview()">
+              </div>
+              <div class="field full" id="ejcatUnitatField" style="display:none">
+                <label>Codi Unitat – Descripció <span class="req">*</span></label>
+                <input type="text" id="ejcatUnitat" placeholder="ex. 972-Secció Civil. Jutjat de Primera Instància núm. 1 de La Bisbal d'Empordà" oninput="renderPreview()">
+              </div>
+              <div class="field" id="ejcatPerfilField" style="display:none">
+                <label>Perfil <span class="req">*</span></label>
+                <input type="text" id="ejcatPerfil" placeholder="ex. Lletrat" oninput="renderPreview()">
+              </div>
+              <div class="field" id="ejcatCarrecField" style="display:none">
+                <label>Càrrec <span class="req">*</span></label>
+                <input type="text" id="ejcatCarrec" placeholder="ex. Magistrat" oninput="renderPreview()">
+              </div>
+              <div class="field" id="ejcatTractamentField" style="display:none">
+                <label>Tractament</label>
+                <input type="text" id="ejcatTractament" placeholder="ex. Magistrat" oninput="renderPreview()">
+              </div>
+              <div class="field" id="ejcatDataIniciField" style="display:none">
+                <label>Data inici vigència <span class="req">*</span></label>
+                <input type="date" id="ejcatDataInici" oninput="renderPreview()">
+              </div>
+              <div class="field" id="ejcatDataFinalField" style="display:none">
+                <label>Data fi vigència</label>
+                <input type="date" id="ejcatDataFinal" oninput="renderPreview()">
+              </div>
+
+              <!-- Clarity -->
+              <div class="clarity-box" id="clarityBox">
+                <div class="clarity-title">🔮 Clarity — Autorització</div>
+                <div class="dl-item" id="clarityAutItem" onclick="toggleClarityAut()">
+                  <div class="dl-cb" style="border-color:var(--warn2)"><svg width="8" height="6" viewBox="0 0 8 6" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 3l2 2 4-4"/></svg></div>
+                  <div class="dl-label"><strong>He rebut autorització del responsable del lot AM01</strong><span>Obligatori per sol·licitar accés a Clarity</span></div>
+                </div>
+              </div>
+
+              <!-- Llistes distribució (nova incorporació) -->
+              <div class="dl-section" id="dlSection">
+                <div class="dl-title">📋 Llistes de distribució a afegir</div>
+                <div class="dl-item" data-dl="general" onclick="toggleDL(this)">
+                  <div class="dl-cb"><svg width="8" height="6" viewBox="0 0 8 6" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 3l2 2 4-4"/></svg></div>
+                  <div class="dl-label"><strong>DL Equip Justicia AM01 (General)</strong><span>Tothom vinculat al servei</span></div>
+                </div>
+                <div class="dl-item" data-dl="sd" onclick="toggleDL(this)">
+                  <div class="dl-cb"><svg width="8" height="6" viewBox="0 0 8 6" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 3l2 2 4-4"/></svg></div>
+                  <div class="dl-label"><strong>DL Equip Justicia AM01 SD</strong><span>SD amb Pilar Tafalla i TRA-SALES</span></div>
+                </div>
+                <div class="dl-item" data-dl="projectes" onclick="toggleDL(this)">
+                  <div class="dl-cb"><svg width="8" height="6" viewBox="0 0 8 6" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 3l2 2 4-4"/></svg></div>
+                  <div class="dl-label"><strong>DL Equip Justicia AM01 Projectes</strong><span>Projectes amb Sandra Juan</span></div>
+                </div>
+              </div>
+
+              <div class="sdiv"><span>Informació addicional</span></div>
+
+              <div class="field full">
+                <label>Observacions</label>
+                <textarea id="obs" placeholder="Informació addicional per als responsables..." oninput="renderPreview()"></textarea>
+              </div>
+
+            </div>
+          </form>
+        </div>
+
+        <div class="actions">
+          <span class="act-info" id="actInfo">Selecciona eines per continuar</span>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-ghost" type="button" onclick="resetAll()">Netejar</button>
+            <button class="btn btn-send" id="sendBtn" type="button" onclick="sendAll()" disabled>
+              <span class="blbl">Enviar peticions</span>
+              <div class="spinner"></div>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="sico"><path d="M22 2L11 13M22 2L15 22 11 13 2 9l20-7z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- PREVISUALITZACIÓ -->
+      <div class="panel">
+        <div class="ph">
+          <span class="ptitle">Previsualització de correus</span>
+          <span class="pbadge" id="emailCount">0 correus</span>
+        </div>
+        <div class="preview-list" id="previewList">
+          <div class="preview-empty">Els correus apareixeran aquí quan seleccionis eines o activis Nova incorporació</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">
+  <div class="toast-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg></div>
+  <div class="toast-text"><div class="toast-title" id="toastT"></div><div class="toast-sub" id="toastS"></div></div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════
+//  ⚙️  CONFIG
+// ═══════════════════════════════════════════════════════════════════════
+let DEBUG_MODE = true;   // false per enviar correus reals
+
+const CFG = {
+  PUBLIC_KEY:  "1P2hmVldlA8yhGD6m",
+  SERVICE_ID:  "service_qbuu4bx",
+  TEMPLATE_ID: "template_79f8vjj",
+  // Template: To={{to_email}}, Subject={{subject}}, Body={{cos}}, CC={{cc_emails}}
+};
+
+const NOVA_TO   = "osega@t-systems.com";
+const NOVA_CC   = "AIDA.QUERALT-FALCO@t-systems.com; ELENA.MARTI@t-systems.com; oriol.prat@t-systems.com; TS_IB_PMO_JUSTICIA_GENERALITAT@t-systems.com";
+const PMO       = "TS_IB_PMO_JUSTICIA_GENERALITAT@t-systems.com";
+const PSS       = "TS_IB_SI_PMO_PSS@t-systems.com";
+const PMO_GENE  = "pmo.generalitat@t-systems.com";
+const QUALITAT  = "FMB-TS_IB_QUALITAT_JUSTICIA_GENERALITAT@t-systems.com";
+const CLARITY_CC= "angel.luna@t-systems.com";
+const SVN_DEF   = "https://setools.t-systems.es/svn-public-gene/TRAMUNTANA_Gene";
+
+const LOGS_MAP = {
+  wl_ejcat:      {INT:"wls_aj_122_int",    PRE:"wls_aj_122_pre",    FOR:"wls_aj_for",  PRO:"wls_aj_122"},
+  wl_ejcat_prog: {INT:"wls_pool_122_int",  PRE:"wls_pool_122_pre",  FOR:null,          PRO:"wls_pool_122"},
+  wl_seu:        {INT:"wls_altres_122_int",PRE:"wls_altres_122_pre",FOR:null,           PRO:"wls_altres_122"},
+  wl_gcrh:       {INT:"wls_gcrh_int",     PRE:"wls_gcrh_pre",      FOR:null,           PRO:"wls_gchr"},
+  osb:           {INT:"osb_122_int",       PRE:"osb_122_pre",       FOR:null,           PRO:"osb_122_pro"},
+};
+const LOGS_LABELS = {
+  wl_ejcat:"WL EJCAT (defecte)", wl_ejcat_prog:"WL EJCAT Progressius (defecte)",
+  wl_seu:"WL Seu Judicial",      wl_gcrh:"WL GCRH",  osb:"OSB"
+};
+
+const OS_MAP = {
+  "1370-ejcat": e => ({ns:`7960-1370-aaw-${e.toLowerCase()}-intra`,    rol:"OpenshiftCPD4_7960-1370-aaw_view"}),
+  "1370-osm":   e => ({ns:`7960-1370-aaw-osm-${e.toLowerCase()}-intra`,rol:"OpenshiftCPD4_7960-1370-osm_view"}),
+  "4039":       e => ({ns:`jcc-${e.toLowerCase()}-inter`,               rol:"OpenshiftCPD4_jcc_view"}),
+  "4040":       e => ({ns:`oej-${e.toLowerCase()}-inter`,               rol:"OpenshiftCPD4_oej_view"}),
+  "4041":       e => ({ns:`ajj-${e.toLowerCase()}-inter`,               rol:"OpenshiftCPD4_ajj_view"}),
+};
+
+// ── EINES ────────────────────────────────────────────────────────────
+// needs_*: quins camps de dades personals necessita aquesta eina
+// requires: camps específics addicionals
+const tools = [
+  {id:"jira",        name:"JIRA",              icon:"🗂️", desc:"Accés a projectes JIRA",             email_to:PSS,      needs_email:true,                                                        requires:["projecte","mirror"]},
+  {id:"gicar",       name:"GICAR / REMEDY",    icon:"🔐", desc:"Alta a GICAR i Remedy",               email_to:PMO_GENE, needs_email:true, needs_xarxa:true, needs_tel:true, needs_dni:true,    requires:["lot"]},
+  {id:"jira_ctti",   name:"JIRA CTTI",         icon:"🏛️", desc:"Accés al JIRA de CTTI",              email_to:"cstd.ctti@gencat.cat", needs_email:true, needs_dni:true,                        requires:["mirror"]},
+  {id:"teams",       name:"Equips de Teams",   icon:"💬", desc:"Alta/Baixa a canals Teams",           email_to:PMO,      needs_email:true,                                                        requires:[]},
+  {id:"svn",         name:"SVN",               icon:"📦", desc:"Repositori SVN T-Systems",            email_to:PSS,      needs_email:true, needs_xarxa:true,                                    requires:["svn_urls"]},
+  {id:"git_gene",    name:"GIT Generalitat",   icon:"🌿", desc:"Repositoris Git corporatius",         email_to:PSS,      needs_email:true, needs_dni:true,                                      requires:["git_gene_urls"]},
+  {id:"git_ts",      name:"GIT T-Systems",     icon:"🐙", desc:"GitBlit T-Systems (GITLib)",          email_to:PSS,      needs_email:true,                                                        requires:[]},
+  {id:"jenkins_ts",  name:"Jenkins T-Systems", icon:"🔧", desc:"CI/CD T-Systems",                    email_to:PSS,      needs_email:true, needs_xarxa:true,                                    requires:[]},
+  {id:"jenkins_gene",name:"Jenkins Generalitat",icon:"🔩",desc:"CI/CD Generalitat (ex SIC)",         email_to:PMO,      needs_email:true, needs_dni:true,                                      requires:[]},
+  {id:"openshift",   name:"OpenShift",         icon:"☁️", desc:"Clústers OpenShift EJCAT+",          email_to:PMO_GENE, needs_email:true, needs_dni:true,                                      requires:["namespace","entorn"]},
+  {id:"grafana",     name:"Grafana",           icon:"📊", desc:"Monitorització EJCAT+",               email_to:PMO,      needs_email:true, needs_dni:true,                                      requires:["entorn"]},
+  {id:"logs",        name:"Accés Logs",        icon:"📋", desc:"Logs WebLogic / OSB",                 email_to:PSS,      needs_email:true,                                                        requires:["logs"]},
+  {id:"bd",          name:"Accés BD",          icon:"🗄️", desc:"Base de dades — mòdul i entorns",    email_to:PSS,      needs_email:true,                                                        requires:["bd"]},
+  {id:"ejcat_prod",  name:"Alta Usuari EJCAT PRO",icon:"⚖️",desc:"Jutjats reals (NO ficticis)",      email_to:QUALITAT,                                                                           requires:["ejcat"]},
+  {id:"clarity",     name:"Clarity",           icon:"🔮", desc:"Gestió de projectes (requereix GICAR)",email_to:PMO_GENE,needs_email:true, needs_dni:true,                                     requires:["clarity","lot","mirror"]},
+  {id:"talaia",      name:"Talaia",            icon:"🔭", desc:"Kibana CTTI — kibana.talaia.ctti.gencat.cat", email_to:PMO_GENE, needs_email:true, needs_dni:true,                          requires:[]},
+];
+
+// ═══════════════════════════════════════════════════════════════════════
+//  FI DE LA CONFIG
+// ═══════════════════════════════════════════════════════════════════════
+
+emailjs.init({publicKey: CFG.PUBLIC_KEY});
+
+const selected   = new Set();
+const dlSelected = new Set();
+let clarityAutoritzat = false;
+
+function toggleDebug() {
+  DEBUG_MODE = !DEBUG_MODE;
+  document.getElementById("debugBanner").style.display = DEBUG_MODE ? "flex" : "none";
+  renderPreview();
+}
+
+function init() {
+  document.getElementById("debugBanner").style.display = DEBUG_MODE ? "flex" : "none";
+  renderTools();
+  updateAll();
+}
+
+// ── HELPERS ──────────────────────────────────────────────────────────
+const g = id => (document.getElementById(id)?.value || "").trim();
+const show = (id, cond) => { const el = document.getElementById(id); if (el) el.style.display = cond ? "flex" : "none"; };
+const showBlock = (id, cond) => { const el = document.getElementById(id); if (el) el.style.display = cond ? "block" : "none"; };
+
+// ── TOOLS ────────────────────────────────────────────────────────────
+function toggleTool(id) {
+  selected.has(id) ? selected.delete(id) : selected.add(id);
+  renderTools(); updateAll();
+}
+function renderTools() {
+  const list = document.getElementById("toolList");
+  list.innerHTML = "";
+  tools.forEach(t => {
+    const d = document.createElement("div");
+    d.className = "ti" + (selected.has(t.id) ? " active" : "");
+    d.innerHTML = `<div class="ti-icon">${t.icon}</div><div class="ti-info"><div class="ti-name">${t.name}</div><div class="ti-desc">${t.desc}</div></div><div class="ti-check"><svg width="8" height="6" viewBox="0 0 8 6" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 3l2 2 4-4"/></svg></div>`;
+    d.onclick = () => toggleTool(t.id);
+    list.appendChild(d);
+  });
+  const c = document.getElementById("toolCount");
+  c.textContent = selected.size + " sel.";
+  c.classList.toggle("on", selected.size > 0);
+}
+
+// ── NOVA / BAIXA ─────────────────────────────────────────────────────
+function toggleNova() {
+  const on = g("isNova") === "true";
+  document.getElementById("isNova").value = on ? "false" : "true";
+  document.getElementById("novaTog").classList.toggle("on", !on);
+  document.getElementById("novaRow").classList.toggle("active-nova", !on);
+  if (!on) {
+    document.getElementById("isBaixa").value = "false";
+    document.getElementById("baixaTog").classList.remove("on");
+    document.getElementById("baixaRow").classList.remove("active-baixa");
+  }
+  updateAll();
+}
+function toggleBaixa() {
+  const on = g("isBaixa") === "true";
+  document.getElementById("isBaixa").value = on ? "false" : "true";
+  document.getElementById("baixaTog").classList.toggle("on", !on);
+  document.getElementById("baixaRow").classList.toggle("active-baixa", !on);
+  if (!on) {
+    document.getElementById("isNova").value = "false";
+    document.getElementById("novaTog").classList.remove("on");
+    document.getElementById("novaRow").classList.remove("active-nova");
+    dlSelected.clear();
+    document.querySelectorAll(".dl-item").forEach(el => el.classList.remove("active"));
+  }
+  updateAll();
+}
+
+// ── DL ───────────────────────────────────────────────────────────────
+function toggleDL(el) {
+  const k = el.dataset.dl;
+  dlSelected.has(k) ? dlSelected.delete(k) : dlSelected.add(k);
+  el.classList.toggle("active", dlSelected.has(k));
+  renderPreview();
+}
+
+// ── CLARITY ──────────────────────────────────────────────────────────
+function toggleClarityAut() {
+  clarityAutoritzat = !clarityAutoritzat;
+  document.getElementById("clarityAutItem").classList.toggle("active", clarityAutoritzat);
+  renderPreview();
+}
+
+// SVG paperera reutilitzable
+const TRASH = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>`;
+
+// ── DYNAMIC ROWS ─────────────────────────────────────────────────────
+function addRow(listId, placeholder) {
+  const list = document.getElementById(listId);
+  const row = document.createElement("div"); row.className = "url-row";
+  row.innerHTML = `<input type="text" placeholder="${placeholder}" oninput="renderPreview()"><button type="button" class="url-remove" onclick="removeRow(this,'${listId}')" title="Eliminar">${TRASH}</button>`;
+  list.appendChild(row);
+}
+function removeRow(btn, listId) {
+  const rows = document.querySelectorAll(`#${listId} .url-row`);
+  if (rows.length > 1) { btn.closest(".url-row").remove(); renderPreview(); }
+}
+function addOsRow() {
+  const list = document.getElementById("osList");
+  const row = document.createElement("div"); row.className = "bd-row";
+  row.innerHTML = `
+    <button type="button" class="bd-row-remove" onclick="removeBdRow(this,'osList')" title="Eliminar">${TRASH}</button>
+    <div><label>Namespace</label>
+      <select onchange="renderPreview()">
+        <option value="">— Selecciona namespace —</option>
+        <option value="1370-ejcat">1370 EJCAT+</option>
+        <option value="1370-osm">1370 EJCAT+ OSM Arquitectes</option>
+        <option value="4039">4039 APU, EVD</option>
+        <option value="4040">4040 AJR+, SJE</option>
+        <option value="4041">4041 AVS, INFOJUS, Textualització</option>
+      </select>
+    </div>
+    <div><label>Entorn(s) <span style="color:var(--acc2)">*</span></label>
+      <div class="entorn-grid">
+        <button type="button" class="entorn-btn" data-v="INT" onclick="this.classList.toggle('sel');renderPreview()">INT</button>
+        <button type="button" class="entorn-btn" data-v="PRE" onclick="this.classList.toggle('sel');renderPreview()">PRE</button>
+        <button type="button" class="entorn-btn" data-v="PRO" onclick="this.classList.toggle('sel');renderPreview()">PRO</button>
+        <button type="button" class="entorn-btn" data-v="FOR" onclick="this.classList.toggle('sel');renderPreview()">FOR</button>
+      </div>
+    </div>`;
+  list.appendChild(row);
+}
+function addLogsRow() {
+  const list = document.getElementById("logsList");
+  const row = document.createElement("div"); row.className = "bd-row";
+  row.innerHTML = `
+    <button type="button" class="bd-row-remove" onclick="removeBdRow(this,'logsList')" title="Eliminar">${TRASH}</button>
+    <div><label>Domini</label>
+      <select onchange="renderPreview()">
+        <option value="wl_ejcat">WL EJCAT (defecte)</option>
+        <option value="wl_ejcat_prog">WL EJCAT Progressius (defecte)</option>
+        <option value="wl_seu">WL Seu Judicial</option>
+        <option value="wl_gcrh">WL GCRH</option>
+        <option value="osb">OSB</option>
+      </select>
+    </div>
+    <div><label>Entorn(s)</label>
+      <div class="entorn-grid">
+        <button type="button" class="entorn-btn" data-v="INT" onclick="this.classList.toggle('sel');renderPreview()">INT</button>
+        <button type="button" class="entorn-btn" data-v="PRE" onclick="this.classList.toggle('sel');renderPreview()">PRE</button>
+        <button type="button" class="entorn-btn" data-v="FOR" onclick="this.classList.toggle('sel');renderPreview()">FOR</button>
+        <button type="button" class="entorn-btn" data-v="PRO" onclick="this.classList.toggle('sel');renderPreview()">PRO</button>
+      </div>
+    </div>`;
+  list.appendChild(row);
+}
+function addBdRow() {
+  const list = document.getElementById("bdList");
+  const row = document.createElement("div"); row.className = "bd-row";
+  row.innerHTML = `
+    <button type="button" class="bd-row-remove" onclick="removeBdRow(this,'bdList')" title="Eliminar">${TRASH}</button>
+    <div><label>Mòdul</label><input type="text" placeholder="ex. ANT, RAA..." oninput="renderPreview()"></div>
+    <div><label>Entorn(s) <span style="color:var(--acc2)">*</span></label>
+      <div class="entorn-grid">
+        <button type="button" class="entorn-btn" data-v="INT" onclick="this.classList.toggle('sel');renderPreview()">INT</button>
+        <button type="button" class="entorn-btn" data-v="PRE" onclick="this.classList.toggle('sel');renderPreview()">PRE</button>
+        <button type="button" class="entorn-btn" data-v="FOR" onclick="this.classList.toggle('sel');renderPreview()">FOR</button>
+        <button type="button" class="entorn-btn" data-v="PRO" onclick="this.classList.toggle('sel');renderPreview()">PRO</button>
+      </div>
+    </div>`;
+  list.appendChild(row);
+}
+function removeBdRow(btn, listId) {
+  const rows = document.querySelectorAll(`#${listId} .bd-row`);
+  if (rows.length > 1) { btn.closest(".bd-row").remove(); renderPreview(); }
+}
+
+// Getters
+function getUrlList(listId) {
+  return Array.from(document.querySelectorAll(`#${listId} input[type=text]`)).map(i=>i.value.trim()).filter(Boolean);
+}
+function getOsSelections() {
+  // Cada fila bd-row té: select (namespace) + entorn-btn.sel (entorns)
+  return Array.from(document.querySelectorAll("#osList .bd-row")).map(row => {
+    const ns = row.querySelector("select")?.value || "";
+    const entorns = Array.from(row.querySelectorAll(".entorn-btn.sel")).map(b => b.dataset.v);
+    if (!ns) return null;
+    const fn = OS_MAP[ns];
+    if (!fn) return null;
+    const nsLabel = row.querySelector(`option[value="${ns}"]`)?.textContent || ns;
+    const items = entorns.map(e => fn(e));
+    const byRol = {};
+    items.forEach(({ns: n, rol}) => { if (!byRol[rol]) byRol[rol] = []; byRol[rol].push(n); });
+    return { label: nsLabel, byRol, entorns, ns };
+  }).filter(Boolean);
+}
+function getLogsList() {
+  return Array.from(document.querySelectorAll("#logsList .bd-row")).map(row => {
+    const domini = row.querySelector("select")?.value || "wl_ejcat";
+    const entorns = Array.from(row.querySelectorAll(".entorn-btn.sel")).map(b=>b.dataset.v);
+    return { domini, label: LOGS_LABELS[domini]||domini, entorns };
+  });
+}
+function getBdList() {
+  return Array.from(document.querySelectorAll("#bdList .bd-row")).map(row => {
+    const modul = row.querySelector("input")?.value.trim() || "";
+    const entorns = Array.from(row.querySelectorAll(".entorn-btn.sel")).map(b=>b.dataset.v);
+    return { modul, entorns };
+  }).filter(r => r.modul);
+}
+
+// ── CONDITIONAL FIELDS ───────────────────────────────────────────────
+function evaluateFields() {
+  const isBaixa = g("isBaixa") === "true";
+  const isNova  = g("isNova")  === "true";
+  const selTools = Array.from(selected).map(id => tools.find(t=>t.id===id)).filter(Boolean);
+  const reqs = new Set(selTools.flatMap(t=>t.requires));
+  const noTools = selected.size === 0 && !isNova && !isBaixa;
+
+  // Error: baixa i alguna eina nova al mateix temps → bloquejar send
+  const hasBaixaConflict = isBaixa && selected.size > 0;
+  document.getElementById("alertBaixaAlta").classList.toggle("show", hasBaixaConflict);
+
+  // Camp email: ocult per EJCAT PRO si és l'única eina seleccionada
+  const onlyEjcat = selected.size === 1 && selected.has("ejcat_prod");
+  const needsEmail = noTools || selTools.some(t=>t.needs_email) || isNova;
+  show("emailField", needsEmail && !onlyEjcat);
+
+  // Usuari xarxa: mostrar si alguna eina ho necessita (i no hi ha eines que explícitament no el necessiten)
+  const needsXarxa = selTools.some(t=>t.needs_xarxa);
+  show("xarxaField", needsXarxa);
+
+  // Telèfon
+  const needsTel = selTools.some(t=>t.needs_tel);
+  show("telField", needsTel);
+
+  // DNI: mostrar si alguna eina ho necessita
+  const needsDni = selTools.some(t=>t.needs_dni) || reqs.has("ejcat");
+  show("dniField", needsDni);
+
+  // Lot
+  const needsLot = reqs.has("lot") || reqs.has("clarity");
+  show("lotField", needsLot);
+
+  // Mirror
+  show("mirrorField",       reqs.has("mirror"));
+  show("projecteField",     reqs.has("projecte"));
+  show("svnUrlField",       reqs.has("svn_urls"));
+  show("gitGeneUrlField",   reqs.has("git_gene_urls"));
+  show("namespaceField",    reqs.has("namespace"));
+  show("entornField",       reqs.has("entorn") || reqs.has("namespace"));
+  show("logsField",         reqs.has("logs"));
+  show("bdField",           reqs.has("bd"));
+  show("bdModulsField",     reqs.has("bd"));
+
+  // EJCAT PRO
+  const hasEjcat = reqs.has("ejcat");
+  document.getElementById("ejcatWarn").classList.toggle("show", hasEjcat);
+  show("ejcatNifField",      hasEjcat);
+  show("ejcatUnitatField",   hasEjcat);
+  show("ejcatPerfilField",   hasEjcat);
+  show("ejcatCarrecField",   hasEjcat);
+  show("ejcatTractamentField",hasEjcat);
+  show("ejcatDataIniciField",hasEjcat);
+  show("ejcatDataFinalField",hasEjcat);
+
+  // Clarity
+  document.getElementById("clarityBox").classList.toggle("show", reqs.has("clarity"));
+
+  // Extra divider
+  const hasExtra = reqs.size > 0;
+  show("extraDiv", hasExtra);
+
+  // DL
+  document.getElementById("dlSection").classList.toggle("show", isNova);
+
+  // Bloquejar send si hi ha conflict baixa+alta
+  document.getElementById("sendBtn").disabled = hasBaixaConflict || (selected.size === 0 && !isNova);
+}
+
+// ── PILLS ────────────────────────────────────────────────────────────
+function renderPills() {
+  const bar = document.getElementById("pillsBar");
+  const isNova = g("isNova") === "true";
+  const isBaixa = g("isBaixa") === "true";
+  if (!selected.size && !isNova && !isBaixa) {
+    bar.innerHTML = '<span class="empty-hint">← Selecciona eines o activa Nova incorporació / Baixa</span>';
+    return;
+  }
+  bar.innerHTML = "";
+  if (isNova) {
+    const p = document.createElement("div"); p.className = "pill";
+    p.style.cssText = "background:rgba(56,217,169,.1);border-color:rgba(56,217,169,.25);color:var(--acc2)";
+    p.innerHTML = `🆕 Nova incorporació <button class="pill-x" style="color:var(--acc2)" onclick="toggleNova()">×</button>`;
+    bar.appendChild(p);
+  }
+  if (isBaixa) {
+    const p = document.createElement("div"); p.className = "pill";
+    p.style.cssText = "background:rgba(247,107,79,.1);border-color:rgba(247,107,79,.25);color:var(--warn)";
+    p.innerHTML = `🚪 Baixa <button class="pill-x" style="color:var(--warn)" onclick="toggleBaixa()">×</button>`;
+    bar.appendChild(p);
+  }
+  selected.forEach(id => {
+    const t = tools.find(x=>x.id===id);
+    const p = document.createElement("div"); p.className = "pill";
+    p.innerHTML = `${t.icon} ${t.name} <button class="pill-x" onclick="toggleTool('${id}')">×</button>`;
+    bar.appendChild(p);
+  });
+}
+
+// ── EMAIL BUILDERS ────────────────────────────────────────────────────
+const line = "─".repeat(30);
+const h = "═".repeat(50);
+const SALUT = `Bon dia/tarda,\n\nUs traslladem les següents peticions d'accés a eines dins l'àmbit del Departament de Justícia.\n\n`;
+
+function dadesPers(incFields) {
+  // incFields: objecte amb {email, xarxa, dni, tel, lot} booleans
+  const nom = `${g("nom")} ${g("cognoms")}`.trim();
+  const isNova = g("isNova") === "true";
+  let s = `DADES PERSONALS\n${line}\n`;
+  s += `Nom i cognoms    : ${nom}\n`;
+  if (incFields.email && g("email"))       s += `Correu           : ${g("email")}\n`;
+  if (incFields.xarxa && g("usuariXarxa")) s += `Usuari de xarxa  : ${g("usuariXarxa")}\n`;
+  if (incFields.dni   && g("dni"))         s += `DNI/NIF          : ${g("dni")}\n`;
+  if (incFields.tel   && g("telefon"))     s += `Telèfon          : ${g("telefon")}\n`;
+  if (incFields.lot   && g("lot"))         s += `Lot              : ${g("lot")}\n`;
+  s += `Nova incorporació: ${isNova?"Sí":"No"}\n`;
+  return s;
+}
+
+function buildSection(tool) {
+  const isBaixa = g("isBaixa") === "true";
+  const nom = `${g("nom")} ${g("cognoms")}`.trim();
+  const tp = isBaixa ? "Baixa" : "Alta";
+
+  if (tool.id === "svn") {
+    const urls = getUrlList("svnUrlList");
+    const urlBlock = (urls.length ? urls : [SVN_DEF]).map(u=>`  • ${u}`).join("\n");
+    if (isBaixa) return `[SVN — Baixa]\nSol.licitem la baixa del SVN pel usuari ${g("usuariXarxa")||nom} (${nom}) per les url:\n${urlBlock}`;
+    return `[SVN — Alta]\nSol·licitem accés de lectura i escriptura en SVN pel usuari ${g("usuariXarxa")||nom} (${nom}) a les url:\n${urlBlock}`;
+  }
+  if (tool.id === "git_ts") {
+    if (isBaixa) return `[GIT T-Systems — Baixa]\nDemanem la baixa de ${nom} de tots els projectes de Justícia en Git T-Systems.\nESPRALBATT_Gene-Dept_JUS / Grupo: ESPRALBATT_Gene-Dept_JUS_RW`;
+    return `[GIT T-Systems — Alta]\nDemanem que ${nom} tingui accés a tots els projectes de Justícia en Git T-Systems.\nESPRALBATT_Gene-Dept_JUS / Grupo: ESPRALBATT_Gene-Dept_JUS_RW`;
+  }
+  if (tool.id === "git_gene") {
+    const urls = getUrlList("gitGeneUrlList");
+    const urlBlock = urls.length ? urls.map(u=>`  • ${u}`).join("\n") : "  (cap URL indicada)";
+    if (isBaixa) return `[GIT Generalitat — Baixa]\nDemanem la baixa de ${nom}${g("dni")?" (DNI: "+g("dni")+")":""} als projectes:\n${urlBlock}`;
+    return `[GIT Generalitat — Alta]\nDemanem accés (Developer) per a ${nom}${g("dni")?" (DNI: "+g("dni")+")":""} als projectes:\n${urlBlock}`;
+  }
+  if (tool.id === "jenkins_ts") {
+    if (isBaixa) return `[Jenkins T-Systems — Baixa]\nNom i cognoms: ${nom}\nUsuari de xarxa: ${g("usuariXarxa")||"—"}`;
+    return `[Jenkins T-Systems — Alta]\nNom i cognoms: ${nom}\nUsuari de xarxa: ${g("usuariXarxa")||"—"}\nGrupo: AM01 / Rol: tramuntana-base`;
+  }
+  if (tool.id === "openshift") {
+    const osSels = getOsSelections();
+    // Detectar files amb namespace però sense entorns (o sense namespace)
+    const rowsWithoutEntorns = Array.from(document.querySelectorAll("#osList .bd-row")).filter(row => {
+      const ns = row.querySelector("select")?.value;
+      const entorns = Array.from(row.querySelectorAll(".entorn-btn.sel"));
+      return ns && entorns.length === 0;
+    });
+    if (!osSels.length) return `[OpenShift — ${tp}]\n⚠️ Pendent: cal seleccionar namespace i entorns`;
+    let s = `[OpenShift — ${tp}]\n`;
+    if (rowsWithoutEntorns.length) s += `⚠️ Hi ha ${rowsWithoutEntorns.length} fila(es) amb namespace però sense entorns seleccionats\n\n`;
+    osSels.forEach(({label, byRol}) => {
+      s += `Namespace: ${label}\n`;
+      Object.entries(byRol).forEach(([rol, nsList]) => {
+        s += `  Rol: ${rol}\n`;
+        nsList.forEach(n => s += `    • ${n}\n`);
+      });
+    });
+    return s.trim();
+  }
+  if (tool.id === "talaia") {
+    const nom = `${g("nom")} ${g("cognoms")}`.trim();
+    return `[Talaia — ${tp}]\nURL: https://kibana.talaia.ctti.gencat.cat/\nRol: GCDCv22_SI_AM01\nNom i cognoms: ${nom}\nDNI/NIF: ${g("dni")||"—"}`;
+  }
+  if (tool.id === "grafana") {
+    const entorns = Array.from(document.querySelectorAll("#entornField .entorn-btn.sel")).map(b=>b.dataset.v);
+    return `[Grafana — ${tp}]\nL'usuari ha de tenir accés a OpenShift per accedir a Grafana.\nEntorns: ${entorns.join(", ")||"(pendent)"}`;
+  }
+  if (tool.id === "jira") {
+    let s = `[JIRA — ${tp}]`;
+    if (!isBaixa) { if(g("projecte")) s+=`\nProjecte: ${g("projecte")}`; if(g("usuariMirall")) s+=`\nUsuari mirall: ${g("usuariMirall")}`; }
+    return s;
+  }
+  if (tool.id === "jira_ctti") {
+    let s = `[JIRA CTTI — ${tp}]`;
+    if (!isBaixa && g("usuariMirall")) s+=`\nUsuari mirall: ${g("usuariMirall")}`;
+    return s;
+  }
+  if (tool.id === "gicar") {
+    let s = `[GICAR / REMEDY — ${tp}]`;
+    if(g("lot")) s+=`\nLot: ${g("lot")}`;
+    return s;
+  }
+  if (tool.id === "jenkins_gene") {
+    return `[Jenkins Generalitat — ${tp}]\nNom i cognoms: ${nom}\nDNI/NIF: ${g("dni")||"—"}`;
+  }
+  if (tool.id === "teams") {
+    return `[Equips de Teams — ${tp}]\nNom i cognoms: ${nom}`;
+  }
+  if (tool.id === "logs") {
+    const logsList = getLogsList();
+    if (!logsList.length) return `[Accés Logs — ${tp}]\n(Pendent de configurar dominis)`;
+    let s = `[Accés Logs — ${tp}]\n`;
+    logsList.forEach(({label, domini, entorns}) => {
+      const domMap = LOGS_MAP[domini]||{};
+      s += `Domini: ${label}\n`;
+      if (!entorns.length) { s += `  (Pendent de seleccionar entorns)\n`; return; }
+      entorns.forEach(e => {
+        const d = domMap[e];
+        s += `  • ${e}: ${d || "(no disponible per a "+label+")"}\n`;
+      });
+    });
+    return s.trim();
+  }
+  if (tool.id === "bd") {
+    const bdList = getBdList();
+    const usuari = g("bdUsuari");
+    let s = `[Accés BD — ${tp}]\nUsuari BD: ${usuari||"(pendent)"}`;
+    if (!bdList.length) return s + "\n(Pendent de configurar mòduls)";
+    bdList.forEach(({modul, entorns}) => {
+      s += `\nMòdul: ${modul} | Entorns: ${entorns.join(", ")||"(pendent)"}`;
+    });
+    return s;
+  }
+  if (tool.id === "ejcat_prod") {
+    return `[Alta Usuari EJCAT PRO]\n⚠️ Jutjats reals (NO ficticis)\n\nNIF: ${g("ejcatNif")||"—"}\nNom Usuari: ${nom}\nCodi Unitat-Descripció: ${g("ejcatUnitat")||"—"}\nPerfil: ${g("ejcatPerfil")||"—"}\nCàrrec: ${g("ejcatCarrec")||"—"}\nTractament: ${g("ejcatTractament")||"—"}\nData inici vigència: ${g("ejcatDataInici")||"—"}\nData fi vigència: ${g("ejcatDataFinal")||"—"}`;
+  }
+  if (tool.id === "clarity") {
+    if (!clarityAutoritzat) return `[Clarity — Alta]\n⚠️ PENDENT: Cal marcar l'autorització del responsable del lot AM01`;
+    let s = `[Clarity — Alta]\nNom i cognoms: ${nom}\nNIF: ${g("dni")||"—"}\nLot: ${g("lot")||"—"}`;
+    if (g("usuariMirall")) s += `\nUsuari mirall: ${g("usuariMirall")}`;
+    s += `\nNota: L'usuari ha de disposar prèviament d'usuari GICAR.`;
+    return s;
+  }
+  return `[${tool.name} — ${tp}]`;
+}
+
+// ── GROUP AND BUILD ───────────────────────────────────────────────────
+function groupAndBuild() {
+  const nom     = `${g("nom")} ${g("cognoms")}`.trim();
+  const isBaixa = g("isBaixa") === "true";
+  const isNova  = g("isNova")  === "true";
+  const tipus   = isBaixa ? "BAIXA" : "ALTA";
+
+  // Agrupa per destinatari
+  const byDest = {};
+  selected.forEach(id => {
+    const t = tools.find(x=>x.id===id);
+    if (!byDest[t.email_to]) byDest[t.email_to] = [];
+    byDest[t.email_to].push(t);
+  });
+
+  const emails = [];
+
+  for (const [dest, toolList] of Object.entries(byDest)) {
+    const toolNames = toolList.map(t=>t.name).join(", ");
+    const subject = `${tipus} eines [${toolNames}] — ${nom}`;
+
+    // Camps dades personals: unió del que necessiten totes les eines del grup
+    const incF = {
+      email: toolList.some(t=>t.needs_email),
+      xarxa: toolList.some(t=>t.needs_xarxa),
+      dni:   toolList.some(t=>t.needs_dni),
+      tel:   toolList.some(t=>t.needs_tel),
+      lot:   toolList.some(t=>t.requires?.includes("lot"))
+    };
+
+    const isPMO = (dest === PMO);
+    const dlBlock = (isNova && isPMO && dlSelected.size > 0) ? buildDLBlock(nom) : "";
+    const hasClarity = (dest === PMO_GENE) && selected.has("clarity");
+
+    let cos = (dest === QUALITAT)
+      ? `Benvolguts,\n\n`   // EJCAT PRO: salutació diferent
+      : SALUT;
+    cos += dadesPers(incF) + "\n";
+    cos += `PETICIONS\n${line}\n`;
+    toolList.forEach(t => { cos += buildSection(t) + "\n\n"; });
+    if (dlBlock) cos += dlBlock + "\n";
+    if (g("obs")) cos += `OBSERVACIONS\n${line}\n${g("obs")}\n\n`;
+    cos += `${h}\nGenerat: ${new Date().toLocaleString("ca-ES")}\n\nSalutacions,`;
+
+    const dotCls = (dest===PMO||dest===PMO_GENE) ? "pmo" : dest===QUALITAT ? "qualitat" : "";
+    emails.push({
+      to: dest, cc: hasClarity ? CLARITY_CC : "", subject, cos, dotCls,
+      label: toolNames
+    });
+  }
+
+  // Baixa → PMO (sempre, si no és ja destinatari d'alguna eina)
+  if (isBaixa && !byDest[PMO]) {
+    const toolNames = Array.from(selected).map(id=>tools.find(t=>t.id===id)?.name||id).join(", ");
+    let cos = SALUT;
+    cos += `Sol·licitem la baixa de les eines: ${toolNames}\n\n`;
+    cos += `Nom i cognoms   : ${nom}\n`;
+    cos += `Correu          : ${g("email")||"—"}\n`;
+    cos += `Usuari de xarxa : ${g("usuariXarxa")||"—"}\n`;
+    cos += `DNI/NIF         : ${g("dni")||"—"}\n`;
+    if (g("obs")) cos += `\nObservacions:\n${g("obs")}\n`;
+    cos += `\n${h}\nGenerat: ${new Date().toLocaleString("ca-ES")}\n\nSalutacions,`;
+    emails.push({to:PMO, cc:"", subject:`Baixa eines [${toolNames}] — ${nom}`, cos, dotCls:"pmo", label:"Baixa PMO"});
+  }
+
+  // Nova incorporació → confidencialitat
+  if (isNova) {
+    let cos = `Bon dia,\n\nUs informem de la incorporació d'una nova persona al projecte. Us demanem que us poseu en contacte per signar l'acord de confidencialitat.\n\n`;
+    cos += `Nom i cognoms   : ${nom}\n`;
+    cos += `Correu          : ${g("email")||"—"}\n`;
+    if(g("usuariXarxa")) cos += `Usuari de xarxa : ${g("usuariXarxa")}\n`;
+    if(g("dni"))         cos += `DNI/NIF         : ${g("dni")}\n`;
+    if(g("obs"))         cos += `\nObservacions:\n${g("obs")}\n`;
+    cos += `\n${h}\nGenerat: ${new Date().toLocaleString("ca-ES")}\n\nSalutacions,`;
+    emails.push({to:NOVA_TO, cc:NOVA_CC, subject:`Nova incorporació — ${nom}`, cos, dotCls:"nova", label:"Confidencialitat"});
+
+    // DL a PMO (si PMO no és ja destinatari d'eines)
+    if (dlSelected.size > 0 && !byDest[PMO]) {
+      let cos2 = SALUT + dadesPers({email:true,xarxa:true}) + "\n" + buildDLBlock(nom) + "\n";
+      cos2 += `${h}\nGenerat: ${new Date().toLocaleString("ca-ES")}\n\nSalutacions,`;
+      emails.push({to:PMO, cc:"", subject:`Nova incorporació — Llistes distribució — ${nom}`, cos:cos2, dotCls:"pmo", label:"Llistes distribució"});
+    }
+  }
+
+  return emails;
+}
+
+function buildDLBlock(nom) {
+  const names = {general:"DL Equip Justicia AM01 (General)",sd:"DL Equip Justicia AM01 SD",projectes:"DL Equip Justicia AM01 PROJECTES"};
+  const chosen = Array.from(dlSelected).map(k=>names[k]).join("\n  • ");
+  return `LLISTES DE DISTRIBUCIÓ\n${line}\nIncloure ${nom} a:\n  • ${chosen}\nCorreu: ${g("email")||"—"}\n`;
+}
+
+// ── PREVIEW ──────────────────────────────────────────────────────────
+function renderPreview() {
+  const list   = document.getElementById("previewList");
+  const cntEl  = document.getElementById("emailCount");
+  const actInfo= document.getElementById("actInfo");
+  const sendBtn= document.getElementById("sendBtn");
+  const isNova = g("isNova") === "true";
+  const isBaixa= g("isBaixa") === "true";
+  const hasBaixaConflict = isBaixa && selected.size > 0;
+
+  if (hasBaixaConflict) {
+    sendBtn.disabled = true;
+    actInfo.innerHTML = `<span style="color:var(--warn)">⚠️ No es pot combinar baixa + eines noves</span>`;
+  }
+
+  if (selected.size === 0 && !isNova) {
+    list.innerHTML = '<div class="preview-empty">Els correus apareixeran aquí quan seleccionis eines o activis Nova incorporació</div>';
+    cntEl.textContent = "0 correus"; cntEl.classList.remove("on");
+    if (!hasBaixaConflict) { sendBtn.disabled = true; actInfo.innerHTML = "Selecciona eines per continuar"; }
+    return;
+  }
+
+  const emails = groupAndBuild();
+  list.innerHTML = "";
+  emails.forEach((e, i) => {
+    const div = document.createElement("div"); div.className = "ep";
+    div.innerHTML = `
+      <div class="ep-head" onclick="this.closest('.ep').classList.toggle('open')">
+        <div class="ep-dot ${e.dotCls||''}"></div>
+        <div class="ep-addrs">
+          <div class="to-l"><span>A: </span>${e.to}</div>
+          ${e.cc ? `<div class="cc-l">CC: ${e.cc}</div>` : ""}
+        </div>
+        <div class="ep-subj">${e.subject}</div>
+        <svg class="ep-chev" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+      <div class="ep-body-wrap"><div class="ep-body">${escHtml(e.cos)}</div></div>
+    `;
+    if (i === 0) div.classList.add("open");
+    list.appendChild(div);
+  });
+
+  const n = emails.length;
+  cntEl.textContent = `${n} correu${n>1?"s":""}`;
+  cntEl.classList.add("on");
+  if (!hasBaixaConflict) {
+    sendBtn.disabled = false;
+    actInfo.innerHTML = DEBUG_MODE
+      ? `<strong>Mode debug</strong> — ${n} correu${n>1?"s":""} preparats`
+      : `S'enviaran <strong>${n}</strong> correu${n>1?"s":""} en paral·lel`;
+  }
+}
+
+function escHtml(s) { return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+function updateAll() { renderPills(); evaluateFields(); renderPreview(); }
+
+// ── VALIDATION ───────────────────────────────────────────────────────
+function validate() {
+  const isBaixa = g("isBaixa") === "true";
+  if (isBaixa && selected.size > 0) { showToast("error","No es pot enviar","Desactiva la baixa o deselecciona les eines"); return false; }
+  if (!g("nom"))     { showToast("error","Camp obligatori",'Omple "Nom"');     document.getElementById("nom")?.focus();     return false; }
+  if (!g("cognoms")) { showToast("error","Camp obligatori",'Omple "Cognoms"'); document.getElementById("cognoms")?.focus(); return false; }
+  const emailEl = document.getElementById("emailField");
+  if (emailEl && emailEl.style.display !== "none" && !g("email")) {
+    showToast("error","Camp obligatori",'Omple "Correu electrònic"'); document.getElementById("email")?.focus(); return false;
+  }
+  if (g("email") && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(g("email"))) {
+    showToast("error","Correu invàlid","Revisa l'adreça de correu electrònic"); return false;
+  }
+  return true;
+}
+
+// ── SEND ─────────────────────────────────────────────────────────────
+async function sendAll() {
+  if (!validate()) return;
+  if (DEBUG_MODE) { showToast("ok","Mode debug actiu","Revisa el contingut dels correus. Desactiva debug per enviar."); return; }
+
+  const btn = document.getElementById("sendBtn");
+  btn.classList.add("loading"); btn.disabled = true;
+  document.querySelector(".sico").style.display = "none";
+
+  const emails = groupAndBuild();
+  const promises = emails.map(e => emailjs.send(CFG.SERVICE_ID, CFG.TEMPLATE_ID, {
+    to_email: e.to, cc_emails: e.cc||"", subject: e.subject, cos: e.cos,
+    nom_complet: `${g("nom")} ${g("cognoms")}`.trim(),
+    data_peticio: new Date().toLocaleString("ca-ES")
+  }));
+
+  try {
+    await Promise.all(promises);
+    showToast("ok",`${promises.length} correu${promises.length>1?"s":""} enviats!`,"Peticions enviades correctament");
+    resetAll();
+  } catch(err) {
+    console.error(err);
+    showToast("error","Error d'enviament",err?.text||"Comprova la configuració d'EmailJS");
+  } finally {
+    btn.classList.remove("loading"); btn.disabled = false;
+    document.querySelector(".sico").style.display = "block";
+  }
+}
+
+// ── RESET ────────────────────────────────────────────────────────────
+function resetAll() {
+  selected.clear(); dlSelected.clear(); clarityAutoritzat = false;
+  document.getElementById("reqForm").reset();
+  ["isNova","isBaixa"].forEach(id => document.getElementById(id).value = "false");
+  ["novaTog","baixaTog"].forEach(id => document.getElementById(id).classList.remove("on"));
+  ["novaRow","baixaRow"].forEach(id => document.getElementById(id).classList.remove("active-nova","active-baixa"));
+  document.querySelectorAll(".dl-item").forEach(el => el.classList.remove("active"));
+  document.querySelectorAll(".entorn-btn").forEach(b => b.classList.remove("sel"));
+  document.getElementById("clarityAutItem")?.classList.remove("active");
+  const TSVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>`;
+  const ENTORN_BTNS = `<button type="button" class="entorn-btn" data-v="INT" onclick="this.classList.toggle('sel');renderPreview()">INT</button><button type="button" class="entorn-btn" data-v="PRE" onclick="this.classList.toggle('sel');renderPreview()">PRE</button><button type="button" class="entorn-btn" data-v="FOR" onclick="this.classList.toggle('sel');renderPreview()">FOR</button><button type="button" class="entorn-btn" data-v="PRO" onclick="this.classList.toggle('sel');renderPreview()">PRO</button>`;
+  const ENTORN_BTNS_OS = `<button type="button" class="entorn-btn" data-v="INT" onclick="this.classList.toggle('sel');renderPreview()">INT</button><button type="button" class="entorn-btn" data-v="PRE" onclick="this.classList.toggle('sel');renderPreview()">PRE</button><button type="button" class="entorn-btn" data-v="PRO" onclick="this.classList.toggle('sel');renderPreview()">PRO</button><button type="button" class="entorn-btn" data-v="FOR" onclick="this.classList.toggle('sel');renderPreview()">FOR</button>`;
+  const resetList = (id, html) => { const el=document.getElementById(id); if(el) el.innerHTML=html; };
+  const NS_OPTS = `<option value="">— Selecciona namespace —</option><option value="1370-ejcat">1370 EJCAT+</option><option value="1370-osm">1370 EJCAT+ OSM Arquitectes</option><option value="4039">4039 APU, EVD</option><option value="4040">4040 AJR+, SJE</option><option value="4041">4041 AVS, INFOJUS, Textualització</option>`;
+  resetList("svnUrlList",`<div class="url-row"><input type="text" placeholder="${SVN_DEF}" oninput="renderPreview()"><button type="button" class="url-remove" onclick="removeRow(this,'svnUrlList')" title="Eliminar">${TSVG}</button></div>`);
+  resetList("gitGeneUrlList",`<div class="url-row"><input type="text" placeholder="https://git.intranet.gencat.cat/grup/projecte" oninput="renderPreview()"><button type="button" class="url-remove" onclick="removeRow(this,'gitGeneUrlList')" title="Eliminar">${TSVG}</button></div>`);
+  resetList("osList",`<div class="bd-row"><button type="button" class="bd-row-remove" onclick="removeBdRow(this,'osList')" title="Eliminar">${TSVG}</button><div><label>Namespace *</label><select onchange="renderPreview()">${NS_OPTS}</select></div><div><label>Entorn(s) *</label><div class="entorn-grid">${ENTORN_BTNS_OS}</div></div></div>`);
+  resetList("logsList",`<div class="bd-row"><button type="button" class="bd-row-remove" onclick="removeBdRow(this,'logsList')" title="Eliminar">${TSVG}</button><div><label>Domini</label><select onchange="renderPreview()"><option value="wl_ejcat">WL EJCAT (defecte)</option><option value="wl_ejcat_prog">WL EJCAT Progressius (defecte)</option><option value="wl_seu">WL Seu Judicial</option><option value="wl_gcrh">WL GCRH</option><option value="osb">OSB</option></select></div><div><label>Entorn(s)</label><div class="entorn-grid">${ENTORN_BTNS}</div></div></div>`);
+  resetList("bdList",`<div class="bd-row"><button type="button" class="bd-row-remove" onclick="removeBdRow(this,'bdList')" title="Eliminar">${TSVG}</button><div><label>Mòdul *</label><input type="text" placeholder="ex. ANT, RAA..." oninput="renderPreview()"></div><div><label>Entorn(s) *</label><div class="entorn-grid">${ENTORN_BTNS}</div></div></div>`);
+  renderTools(); updateAll();
+}
+
+// ── TOAST ────────────────────────────────────────────────────────────
+let toastTimer;
+function showToast(type,title,sub) {
+  const t = document.getElementById("toast");
+  document.getElementById("toastT").textContent = title;
+  document.getElementById("toastS").textContent = sub;
+  t.className = "toast" + (type==="error"?" error":"");
+  t.querySelector(".toast-icon svg").innerHTML = type==="error"
+    ? '<path d="M18 6L6 18M6 6l12 12" stroke-linecap="round"/>'
+    : '<path d="M20 6L9 17l-5-5"/>';
+  clearTimeout(toastTimer);
+  t.classList.add("show");
+  toastTimer = setTimeout(()=>t.classList.remove("show"), 4500);
+}
+
+init();
+</script>
+</body>
+</html>
