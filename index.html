@@ -569,14 +569,12 @@
 // ═══════════════════════════════════════════════════════════════════════
 //  ⚙️  CONFIG
 // ═══════════════════════════════════════════════════════════════════════
-let DEBUG_MODE = true;   // false per enviar correus reals
+let DEBUG_MODE = true;   // false per enviar correus reals via Power Automate
 
-const CFG = {
-  PUBLIC_KEY:  "1P2hmVldlA8yhGD6m",
-  SERVICE_ID:  "service_qbuu4bx",
-  TEMPLATE_ID: "template_79f8vjj",
-  // Template: To={{to_email}}, Subject={{subject}}, Body={{cos}}, CC={{cc_emails}}
-};
+// URL del webhook de Power Automate
+// Crea un flux: Trigger "Quan es rep una sol·licitud HTTP" → Acció "Enviar correu (V2)"
+// El flux rep: { to, cc, subject, body }
+const PA_WEBHOOK_URL = "POSA_AQUI_LA_URL_DEL_WEBHOOK_POWER_AUTOMATE";
 
 const NOVA_TO   = "osega@t-systems.com";
 const NOVA_CC   = "AIDA.QUERALT-FALCO@t-systems.com; ELENA.MARTI@t-systems.com; oriol.prat@t-systems.com; TS_IB_PMO_JUSTICIA_GENERALITAT@t-systems.com";
@@ -632,8 +630,6 @@ const tools = [
 // ═══════════════════════════════════════════════════════════════════════
 //  FI DE LA CONFIG
 // ═══════════════════════════════════════════════════════════════════════
-
-emailjs.init({publicKey: CFG.PUBLIC_KEY});
 
 const selected   = new Set();
 const dlSelected = new Set();
