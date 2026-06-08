@@ -227,19 +227,32 @@
   </style>
 </head>
 <body>
+
+<!-- SharePoint top bar -->
+<div class="sp-bar">
+  <a class="sp-bar-logo" href="#">
+    <svg width="18" height="18" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="4" fill="rgba(255,255,255,.15)"/><rect x="6" y="6" width="12" height="12" rx="2" fill="#fff"/><rect x="14" y="14" width="12" height="12" rx="2" fill="rgba(255,255,255,.6)"/></svg>
+    SharePoint
+  </a>
+  <div class="sp-bar-sep"></div>
+  <span class="sp-bar-site">T-Systems · AM01 Justícia</span>
+  <div class="sp-bar-right"><div class="sp-avatar">AM</div></div>
+</div>
+<div class="sp-crumb">
+  <a href="#">Inici</a><span class="sp-crumb-sep">›</span>
+  <a href="#">AM01 Justícia</a><span class="sp-crumb-sep">›</span>
+  <span>Gestió de Peticions d'Accés</span>
+</div>
+
 <div class="page">
 
-  <div class="header">
-    <div>
-      <div class="htag">Sistema de Gestió · AM01 Justícia</div>
-      <h1>Peticions d'<em>Accés</em></h1>
-      <p class="hdesc">Selecciona eines, omple el formulari i el sistema enviarà cada petició al responsable corresponent.</p>
-    </div>
-    <div class="hbadge"><div class="dot"></div>EmailJS · Enviament automàtic</div>
+  <div class="page-header">
+    <h1>📋 Gestió de Peticions d'Accés</h1>
+    <p>Selecciona les eines necessàries, omple el formulari una sola vegada i el sistema enviarà cada petició al responsable corresponent via Power Automate.</p>
   </div>
 
   <div class="debug-banner" id="debugBanner">
-    🔍 <strong>Mode debug actiu</strong> — els correus es mostren però no s'envien. Obre cada targeta per veure el contingut.
+    ⚠️ <strong>Mode debug actiu</strong> — els correus es mostren però no s'envien. Obre cada targeta per veure el contingut exacte.
     <button onclick="toggleDebug()">Desactivar debug</button>
   </div>
 
@@ -569,12 +582,35 @@
 // ═══════════════════════════════════════════════════════════════════════
 //  ⚙️  CONFIG
 // ═══════════════════════════════════════════════════════════════════════
-let DEBUG_MODE = true;   // false per enviar correus reals via Power Automate
+let DEBUG_MODE = false;   // false per escriure a la SharePoint List real
 
-// URL del webhook de Power Automate
-// Crea un flux: Trigger "Quan es rep una sol·licitud HTTP" → Acció "Enviar correu (V2)"
-// El flux rep: { to, cc, subject, body }
-const PA_WEBHOOK_URL = "POSA_AQUI_LA_URL_DEL_WEBHOOK_POWER_AUTOMATE";
+// ── SHAREPOINT CONFIG ─────────────────────────────────────────────────
+// El formulari escriu a una llista de SharePoint. Power Automate
+// (trigger "Quan es crea un element" — connector ESTÀNDARD, sense Premium)
+// llegeix la llista i envia el correu via Outlook corporatiu.
+//
+// PASSOS DE CONFIGURACIÓ:
+// 1. Al teu SharePoint, crea una llista anomenada "PeticionsAcces" amb
+//    aquestes columnes de text (columna de text de línia única):
+//      Title (ja existeix) → l'usarem com a "subject"
+//      DestinatariA        → adreça "To"
+//      DestinatariCC       → adreça "CC" (pot estar buida)
+//      CosCorreu           → text del correu (columna de text multilínia)
+//      Processat           → columna Sí/No (Power Automate la marca com a Sí un cop enviat)
+//
+// 2. A Power Automate crea un flux automatitzat:
+//      Trigger : "Quan es crea un element" → SharePoint → llista PeticionsAcces
+//      Acció 1 : "Enviar un correu electrònic (V2)" → Outlook
+//                  Para    = DestinatariA
+//                  CC      = DestinatariCC
+//                  Asunto  = Title
+//                  Cuerpo  = CosCorreu
+//      Acció 2 : "Actualitzar element" → Processat = Sí
+//
+// 3. Substitueix les constants SP_SITE i SP_LIST si cal:
+
+const SP_SITE = "https://telekom.sharepoint.de/sites/ServeiAsistenciaAM01";
+const SP_LIST = "PeticionsAcces";
 
 const NOVA_TO   = "osega@t-systems.com";
 const NOVA_CC   = "AIDA.QUERALT-FALCO@t-systems.com; ELENA.MARTI@t-systems.com; oriol.prat@t-systems.com; TS_IB_PMO_JUSTICIA_GENERALITAT@t-systems.com";
@@ -1205,8 +1241,8 @@ function renderPreview() {
   if (!hasBaixaConflict) {
     sendBtn.disabled = false;
     actInfo.innerHTML = DEBUG_MODE
-      ? `<strong>Mode debug</strong> — ${n} correu${n>1?"s":""} preparats`
-      : `S'enviaran <strong>${n}</strong> correu${n>1?"s":""} en paral·lel`;
+      ? `⚠️ <strong>Mode debug</strong> — ${n} correu${n>1?"s":""} preparats (no s'enviaran)`
+      : `<span class="pa-status"><span class="pa-dot"></span>S'enviaran <strong>${n}</strong> petició${n>1?"ns":""} → SharePoint → Power Automate</span>`;
   }
 }
 
@@ -1230,29 +1266,82 @@ function validate() {
   return true;
 }
 
+// ── SHAREPOINT HELPERS ────────────────────────────────────────────────
+// Obté el Request Digest necessari per escriure a SharePoint via REST API.
+// Funciona sense cap configuració addicional quan la pàgina es carrega
+// des del mateix domini SharePoint (autenticació per cookie de sessió).
+async function getRequestDigest() {
+  const r = await fetch(`${SP_SITE}/_api/contextinfo`, {
+    method: "POST",
+    headers: { "Accept": "application/json;odata=nometadata" },
+    credentials: "include"
+  });
+  if (!r.ok) throw new Error(`No s'ha pogut obtenir el digest de SharePoint (HTTP ${r.status}). Assegura't que la pàgina es carrega des del domini SharePoint.`);
+  const data = await r.json();
+  return data.FormDigestValue;
+}
+
+async function createSpItem(digest, item) {
+  const r = await fetch(
+    `${SP_SITE}/_api/web/lists/getbytitle('${SP_LIST}')/items`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Accept":          "application/json;odata=nometadata",
+        "Content-Type":    "application/json;odata=nometadata",
+        "X-RequestDigest": digest,
+      },
+      body: JSON.stringify({
+        Title:         item.subject,
+        DestinatariA:  item.to,
+        DestinatariCC: item.cc || "",
+        CosCorreu:     item.body,
+        Processat:     false,
+      })
+    }
+  );
+  if (!r.ok) {
+    const err = await r.text();
+    throw new Error(`Error creant element a SharePoint (HTTP ${r.status}): ${err}`);
+  }
+  return r.json();
+}
+
 // ── SEND ─────────────────────────────────────────────────────────────
 async function sendAll() {
   if (!validate()) return;
-  if (DEBUG_MODE) { showToast("ok","Mode debug actiu","Revisa el contingut dels correus. Desactiva debug per enviar."); return; }
+
+  if (DEBUG_MODE) {
+    showToast("ok", "Mode debug actiu", "Revisa els correus al panell. Canvia DEBUG_MODE=false per enviar.");
+    return;
+  }
 
   const btn = document.getElementById("sendBtn");
   btn.classList.add("loading"); btn.disabled = true;
   document.querySelector(".sico").style.display = "none";
 
-  const emails = groupAndBuild();
-  const promises = emails.map(e => emailjs.send(CFG.SERVICE_ID, CFG.TEMPLATE_ID, {
-    to_email: e.to, cc_emails: e.cc||"", subject: e.subject, cos: e.cos,
-    nom_complet: `${g("nom")} ${g("cognoms")}`.trim(),
-    data_peticio: new Date().toLocaleString("ca-ES")
-  }));
-
   try {
-    await Promise.all(promises);
-    showToast("ok",`${promises.length} correu${promises.length>1?"s":""} enviats!`,"Peticions enviades correctament");
+    // 1. Obtenir el digest de SharePoint (1 sola crida)
+    const digest = await getRequestDigest();
+
+    // 2. Crear un element per cada correu (en seqüència per evitar throttling)
+    const emails = groupAndBuild();
+    let enviats = 0;
+    for (const e of emails) {
+      await createSpItem(digest, { to: e.to, cc: e.cc, subject: e.subject, body: e.cos });
+      enviats++;
+    }
+
+    showToast("ok",
+      `${enviats} petició${enviats > 1 ? "ns" : ""} enviada${enviats > 1 ? "s" : ""}!`,
+      "Registrades a SharePoint. Power Automate enviarà els correus en instants."
+    );
     resetAll();
+
   } catch(err) {
     console.error(err);
-    showToast("error","Error d'enviament",err?.text||"Comprova la configuració d'EmailJS");
+    showToast("error", "Error en desar a SharePoint", err.message || "Comprova que la llista existeix i que tens permisos d'escriptura.");
   } finally {
     btn.classList.remove("loading"); btn.disabled = false;
     document.querySelector(".sico").style.display = "block";
