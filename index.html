@@ -1282,6 +1282,15 @@ async function getRequestDigest() {
 }
 
 async function createSpItem(digest, item) {
+  // Convertim els salts de línia a <br> perquè Power Automate
+  // enviï el correu en format HTML amb el cos ben formatat.
+  // Al flux de Power Automate: Cuerpo = CosCorreu, Format = HTML
+  const cosHtml = item.body
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\n/g, "<br>");
+
   const r = await fetch(
     `${SP_SITE}/_api/web/lists/getbytitle('${SP_LIST}')/items`,
     {
@@ -1296,7 +1305,7 @@ async function createSpItem(digest, item) {
         Title:         item.subject,
         DestinatariA:  item.to,
         DestinatariCC: item.cc || "",
-        CosCorreu:     item.body,
+        CosCorreu:     cosHtml,
         Processat:     false,
       })
     }
